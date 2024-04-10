@@ -7,10 +7,11 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 public interface StorageType {
   
-  boolean initStorageProcesses();
+  CompletableFuture<Boolean> initStorageProcesses();
   
   void endStorageProcesses();
   
@@ -20,11 +21,13 @@ public interface StorageType {
   
   void createAccounts(@NotNull Collection<Account> accounts);
   
-  void saveAllAccounts();
+  void saveAccounts(@NotNull Collection<Account> accounts);
   
-  @NotNull Map<UUID, Account> getAllAccounts();
+  @NotNull
+  CompletableFuture<Map<UUID, Account>> getAllAccounts();
   
-  @NotNull Set<String> getCurrencies();
+  @NotNull
+  Set<String> getCurrencies();
   
   boolean addCurrency(@NotNull String currency);
   

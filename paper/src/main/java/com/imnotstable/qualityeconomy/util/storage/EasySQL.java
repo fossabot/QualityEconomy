@@ -1,6 +1,7 @@
 package com.imnotstable.qualityeconomy.util.storage;
 
 import com.imnotstable.qualityeconomy.QualityEconomy;
+import com.imnotstable.qualityeconomy.commands.CommandManager;
 import com.imnotstable.qualityeconomy.storage.accounts.Account;
 import com.imnotstable.qualityeconomy.util.Misc;
 import com.imnotstable.qualityeconomy.util.debug.Logger;
@@ -117,6 +118,20 @@ public class EasySQL extends EasyCurrencies {
     }
   }
   
+  protected void toggleCurrencyTable(Connection connection) throws SQLException {
+    boolean tableExists = currencyTableExists(connection.getMetaData());
+    if (tableExists) {
+      try (ResultSet resultSet = connection.createStatement().executeQuery("SELECT * FROM CURRENCIES")) {
+        while (resultSet.next())
+          currencies.add(resultSet.getString(1));
+      }
+    }
+    if (QualityEconomy.getQualityConfig().CUSTOM_CURRENCIES && !tableExists)
+      createCurrencyTable(connection);
+    else if (!QualityEconomy.getQualityConfig().CUSTOM_CURRENCIES && tableExists)
+      dropCurrencyTable(connection);
+  }
+  
   protected void executeStatement(Connection connection, String sql) throws SQLException {
     try (Statement statement = connection.createStatement()) {
       statement.execute(sql);
@@ -159,6 +174,33 @@ public class EasySQL extends EasyCurrencies {
       columns.remove(column);
       generateStatements();
     }
+  }
+  
+  protected void toggleColumns(Connection connection) throws SQLException {
+    DatabaseMetaData metaData = connection.getMetaData();
+    if (QualityEconomy.getQualityConfig().CUSTOM_CURRENCIES) {
+      CommandManager.getCommand("custombalance").register();
+      CommandManager.getCommand("customeconomy").register();
+      for (String currency : currencies)
+        if (!columnExists(metaData, currency))
+          addColumn(connection, currency, "FLOAT(53)", "0.0");
+    } else {
+      CommandManager.getCommand("custombalance").unregister();
+      CommandManager.getCommand("customeconomy").unregister();
+      for (String currency : currencies)
+        if (columnExists(metaData, currency))
+          dropColumn(connection, currency);
+    }
+    boolean payableExists = columnExists(metaData, "PAYABLE");
+    if (QualityEconomy.getQualityConfig().COMMANDS_PAY && !payableExists)
+      addColumn(connection, "PAYABLE", "BOOLEAN", "TRUE");
+    else if (!QualityEconomy.getQualityConfig().COMMANDS_PAY && payableExists)
+      dropColumn(connection, "PAYABLE");
+    boolean requestableExists = columnExists(metaData, "REQUESTABLE");
+    if (QualityEconomy.getQualityConfig().COMMANDS_REQUEST && !requestableExists)
+      addColumn(connection, "REQUESTABLE", "BOOLEAN", "FALSE");
+    else if (!QualityEconomy.getQualityConfig().COMMANDS_REQUEST && requestableExists)
+      dropColumn(connection, "REQUESTABLE");
   }
   
   protected void createAccountSetter(PreparedStatement preparedStatement, Account account) throws SQLException {

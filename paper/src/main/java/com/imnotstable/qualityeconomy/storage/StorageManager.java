@@ -61,21 +61,23 @@ public class StorageManager implements Listener {
         activeStorageType = new SQLStorageType(1);
       }
     }
-    if (!activeStorageType.initStorageProcesses()) {
-      Logger.logError("Failed to initiate storage processes");
-      timer.interrupt();
-      return;
-    }
-    AccountManager.setupAccounts();
-    long interval = QualityEconomy.getQualityConfig().AUTO_SAVE_ACCOUNTS_INTERVAL;
-    if (interval > 0)
-      accountSchedulerID = Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
-        AccountManager::saveAllAccounts, interval, interval).getTaskId();
-    interval = QualityEconomy.getQualityConfig().BACKUP_INTERVAL;
-    if (interval > 0)
-      backupSchedulerID = Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
-        () -> exportDatabase("plugins/QualityEconomy/backups/"), interval, interval).getTaskId();
-    timer.end();
+    activeStorageType.initStorageProcesses().thenAccept(activated -> {
+      if (!activated) {
+        Logger.logError("Failed to initiate storage processes");
+        timer.interrupt();
+        return;
+      }
+      AccountManager.setupAccounts();
+      long interval = QualityEconomy.getQualityConfig().AUTO_SAVE_ACCOUNTS_INTERVAL;
+      if (interval > 0)
+        accountSchedulerID = Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
+          AccountManager::saveAllAccounts, interval, interval).getTaskId();
+      interval = QualityEconomy.getQualityConfig().BACKUP_INTERVAL;
+      if (interval > 0)
+        backupSchedulerID = Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
+          () -> exportDatabase("plugins/QualityEconomy/backups/"), interval, interval).getTaskId();
+      timer.end();
+    });
   }
   
   public static void endStorageProcesses() {
@@ -157,7 +159,7 @@ public class StorageManager implements Listener {
       JsonObject root = new JsonObject();
       if (QualityEconomy.getQualityConfig().CUSTOM_CURRENCIES)
         root.add("CUSTOM-CURRENCIES", gson.toJsonTree(getActiveStorageType().getCurrencies()));
-      getActiveStorageType().getAllAccounts().forEach((uuid, account) -> {
+      getActiveStorageType().getAllAccounts().thenAccept(map -> map.forEach(((uuid, account) -> {
         JsonObject accountJson = new JsonObject();
         accountJson.addProperty("NAME", account.getUsername());
         accountJson.addProperty("BALANCE", account.getBalance());
@@ -165,7 +167,7 @@ public class StorageManager implements Listener {
         accountJson.addProperty("REQUESTABLE", account.isRequestable());
         account.getCustomBalances().forEach(accountJson::addProperty);
         root.add(uuid.toString(), accountJson);
-      });
+      })));
       File file = new File(String.format("%sQualityEconomy %s.json", path, LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy.MM.dd HH-mm"))));
       try (FileWriter writer = new FileWriter(file)) {
         writer.write(gson.toJson(root));

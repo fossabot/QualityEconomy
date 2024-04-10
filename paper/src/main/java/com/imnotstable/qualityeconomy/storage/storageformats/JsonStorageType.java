@@ -6,7 +6,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.imnotstable.qualityeconomy.QualityEconomy;
 import com.imnotstable.qualityeconomy.storage.accounts.Account;
-import com.imnotstable.qualityeconomy.storage.accounts.AccountManager;
 import com.imnotstable.qualityeconomy.util.debug.Logger;
 import com.imnotstable.qualityeconomy.util.storage.EasyJson;
 import org.jetbrains.annotations.NotNull;
@@ -17,85 +16,100 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
-public class JsonStorageType extends EasyJson implements StorageType {
+public final class JsonStorageType extends EasyJson implements StorageType {
   
   @Override
-  public boolean initStorageProcesses() {
-    if (json != null) return false;
-    try {
-      if (!file.exists()) {
-        if (!file.createNewFile())
-          return false;
-        json = new JsonObject();
-      } else {
-        try (FileReader reader = new FileReader(file)) {
-          json = new Gson().fromJson(reader, JsonObject.class);
+  public CompletableFuture<Boolean> initStorageProcesses() {
+    return CompletableFuture.supplyAsync(() -> {
+      if (json != null) return false;
+      try {
+        if (!file.exists()) {
+          if (!file.createNewFile())
+            return false;
+          json = new JsonObject();
+        } else {
+          try (FileReader reader = new FileReader(file)) {
+            json = new Gson().fromJson(reader, JsonObject.class);
+          }
         }
+        toggleCustomCurrencies();
+        save();
+      } catch (IOException exception) {
+        Logger.logError("Failed to initiate storage processes", exception);
+        return false;
       }
-      toggleCustomCurrencies();
-      save();
-    } catch (IOException exception) {
-      Logger.logError("Failed to initiate storage processes", exception);
-      return false;
-    }
-    return true;
+      return true;
+    });
   }
   
   @Override
   public void endStorageProcesses() {
-    if (json == null) return;
-    if (file.exists())
-      save();
-    json = null;
+    CompletableFuture.runAsync(() -> {
+      if (json == null) return;
+      if (file.exists())
+        save();
+      json = null;
+    });
   }
   
   @Override
   public void wipeDatabase() {
-    file.delete();
-    endStorageProcesses();
-    initStorageProcesses();
+    CompletableFuture.runAsync(() -> {
+      file.delete();
+      endStorageProcesses();
+      initStorageProcesses();
+    });
   }
   
   @Override
   public void createAccount(@NotNull Account account) {
-    json.add(String.valueOf(account.getUniqueId()), serialize(account));
-    save();
+    CompletableFuture.runAsync(() -> {
+      json.add(String.valueOf(account.getUniqueId()), serialize(account));
+      save();
+    });
   }
   
   @Override
   public void createAccounts(@NotNull Collection<Account> accounts) {
-    accounts.forEach(account -> json.add(String.valueOf(account.getUniqueId()), serialize(account)));
-    save();
+    CompletableFuture.runAsync(() -> {
+      accounts.forEach(account -> json.add(String.valueOf(account.getUniqueId()), serialize(account)));
+      save();
+    });
   }
   
   @Override
-  public void saveAllAccounts() {
-    AccountManager.getAllAccounts().stream()
-      .filter(Account::requiresUpdate)
-      .forEach(account -> json.add(String.valueOf(account.getUniqueId()), serialize(account.update())));
-    save();
+  public void saveAccounts(@NotNull Collection<Account> accounts) {
+    CompletableFuture.runAsync(() -> {
+      accounts.stream()
+        .filter(Account::requiresUpdate)
+        .forEach(account -> json.add(String.valueOf(account.getUniqueId()), serialize(account.update())));
+      save();
+    });
   }
   
   @Override
-  public @NotNull Map<UUID, Account> getAllAccounts() {
-    HashMap<UUID, Account> accounts = new HashMap<>();
-    for (Map.Entry<String, JsonElement> entry : getEntrySet()) {
-      UUID uuid = UUID.fromString(entry.getKey());
-      JsonObject accountJson = entry.getValue().getAsJsonObject();
-      Account account = new Account(uuid)
-        .setUsername(accountJson.get("USERNAME").getAsString())
-        .setBalance(accountJson.get("BALANCE").getAsDouble());
-      if (QualityEconomy.getQualityConfig().COMMANDS_PAY)
-        account.setPayable(accountJson.get("PAYABLE").getAsBoolean());
-      if (QualityEconomy.getQualityConfig().COMMANDS_REQUEST)
-        account.setPayable(accountJson.get("REQUESTABLE").getAsBoolean());
-      if (QualityEconomy.getQualityConfig().CUSTOM_CURRENCIES)
-        for (String currency : getCurrencies())
-          account.setCustomBalance(currency, accountJson.get(currency).getAsDouble());
-      accounts.put(uuid, account);
-    }
-    return accounts;
+  public @NotNull CompletableFuture<Map<UUID, Account>> getAllAccounts() {
+    return CompletableFuture.supplyAsync(() -> {
+      HashMap<UUID, Account> accounts = new HashMap<>();
+      for (Map.Entry<String, JsonElement> entry : getEntrySet()) {
+        UUID uuid = UUID.fromString(entry.getKey());
+        JsonObject accountJson = entry.getValue().getAsJsonObject();
+        Account account = new Account(uuid)
+          .setUsername(accountJson.get("USERNAME").getAsString())
+          .setBalance(accountJson.get("BALANCE").getAsDouble());
+        if (QualityEconomy.getQualityConfig().COMMANDS_PAY)
+          account.setPayable(accountJson.get("PAYABLE").getAsBoolean());
+        if (QualityEconomy.getQualityConfig().COMMANDS_REQUEST)
+          account.setPayable(accountJson.get("REQUESTABLE").getAsBoolean());
+        if (QualityEconomy.getQualityConfig().CUSTOM_CURRENCIES)
+          for (String currency : getCurrencies())
+            account.setCustomBalance(currency, accountJson.get(currency).getAsDouble());
+        accounts.put(uuid, account);
+      }
+      return accounts;
+    });
   }
   
   @Override

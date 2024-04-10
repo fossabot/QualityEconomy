@@ -26,8 +26,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -154,11 +156,42 @@ public class MainCommand extends BaseCommand {
   
   private void createFakeEntries(CommandSender sender, CommandArguments args) {
     int entries = (int) args.get("entries");
-    AccountManager.createFakeAccounts(entries);
+    CompletableFuture.runAsync(() -> {
+      Timer timer = new Timer(String.format("createFakeAccounts(%d)", entries));
+      Collection<Account> accounts = new ArrayList<>();
+      Random random = new Random();
+      Collection<String> currencies = QualityEconomy.getQualityConfig().CUSTOM_CURRENCIES ? StorageManager.getActiveStorageType().getCurrencies() : new ArrayList<>();
+      for (int i = 0; i < entries; ++i) {
+        UUID uuid = UUID.randomUUID();
+        HashMap<String, Double> customBalances = new HashMap<>();
+        for (String currency : currencies) {
+          customBalances.put(currency, random.nextDouble(1_000_000_000_000_000.0));
+        }
+        accounts.add(new Account(uuid).setUsername(uuid.toString().split("-")[0])
+          .setBalance(random.nextDouble(1_000_000_000_000_000.0))
+          .setCustomBalances(customBalances).setPayable(false)
+        );
+      }
+      StorageManager.getActiveStorageType().createAccounts(accounts);
+      AccountManager.setupAccounts();
+      timer.end();
+    });
   }
   
   private void changeAllEntries(CommandSender sender, CommandArguments args) {
-    AccountManager.changeAllAccounts();
+    CompletableFuture.runAsync(() -> {
+      Timer timer = new Timer("changeAllAccounts()");
+      Random random = new Random();
+      String[] currencies = QualityEconomy.getQualityConfig().CUSTOM_CURRENCIES ? StorageManager.getActiveStorageType().getCurrencies().toArray(new String[0]) : new String[0];
+      AccountManager.getAllAccounts().forEach(account -> {
+        HashMap<String, Double> customBalances = new HashMap<>();
+        for (String currency : currencies) {
+          customBalances.put(currency, random.nextDouble(1_000_000_000_000_000.0));
+        }
+        account.setBalance(random.nextDouble(1_000_000_000_000_000.0)).setCustomBalances(customBalances);
+      });
+      timer.end();
+    });
   }
   
   private void createCustomCurrency(CommandSender sender, CommandArguments args) {
