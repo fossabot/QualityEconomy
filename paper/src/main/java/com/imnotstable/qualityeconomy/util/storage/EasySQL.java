@@ -1,7 +1,6 @@
 package com.imnotstable.qualityeconomy.util.storage;
 
 import com.imnotstable.qualityeconomy.QualityEconomy;
-import com.imnotstable.qualityeconomy.commands.CommandManager;
 import com.imnotstable.qualityeconomy.storage.accounts.Account;
 import com.imnotstable.qualityeconomy.util.Misc;
 import com.imnotstable.qualityeconomy.util.debug.Logger;
@@ -179,14 +178,10 @@ public class EasySQL extends EasyCurrencies {
   protected void toggleColumns(Connection connection) throws SQLException {
     DatabaseMetaData metaData = connection.getMetaData();
     if (QualityEconomy.getQualityConfig().CUSTOM_CURRENCIES) {
-      CommandManager.getCommand("custombalance").register();
-      CommandManager.getCommand("customeconomy").register();
       for (String currency : currencies)
         if (!columnExists(metaData, currency))
           addColumn(connection, currency, "FLOAT(53)", "0.0");
     } else {
-      CommandManager.getCommand("custombalance").unregister();
-      CommandManager.getCommand("customeconomy").unregister();
       for (String currency : currencies)
         if (columnExists(metaData, currency))
           dropColumn(connection, currency);

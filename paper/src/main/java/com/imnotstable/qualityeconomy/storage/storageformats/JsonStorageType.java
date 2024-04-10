@@ -113,33 +113,37 @@ public final class JsonStorageType extends EasyJson implements StorageType {
   }
   
   @Override
-  public boolean addCurrency(@NotNull String currency) {
-    JsonArray currencies = json.getAsJsonArray("custom-currencies");
-    if (currencies == null || currencies.isEmpty())
-      currencies = new JsonArray();
-    currencies.add(currency);
-    json.add("custom-currencies", currencies);
-    for (Map.Entry<String, JsonElement> entry : getEntrySet()) {
-      JsonObject accountJson = entry.getValue().getAsJsonObject();
-      accountJson.addProperty(currency, 0);
-    }
-    save();
-    super.currencies.add(currency);
-    return true;
+  public CompletableFuture<Boolean> addCurrency(@NotNull String currency) {
+    return CompletableFuture.supplyAsync(() -> {
+      JsonArray currencies = json.getAsJsonArray("custom-currencies");
+      if (currencies == null || currencies.isEmpty())
+        currencies = new JsonArray();
+      currencies.add(currency);
+      json.add("custom-currencies", currencies);
+      for (Map.Entry<String, JsonElement> entry : getEntrySet()) {
+        JsonObject accountJson = entry.getValue().getAsJsonObject();
+        accountJson.addProperty(currency, 0);
+      }
+      save();
+      super.currencies.add(currency);
+      return true;
+    });
   }
   
   @Override
-  public boolean removeCurrency(@NotNull String currency) {
-    JsonArray currencies = json.getAsJsonArray("custom-currencies");
-    currencies.remove(new Gson().toJsonTree(currency));
-    json.add("custom-currencies", currencies);
-    for (Map.Entry<String, JsonElement> entry : getEntrySet()) {
-      JsonObject accountJson = entry.getValue().getAsJsonObject();
-      accountJson.remove(currency);
-    }
-    save();
-    super.currencies.remove(currency);
-    return true;
+  public CompletableFuture<Boolean> removeCurrency(@NotNull String currency) {
+    return CompletableFuture.supplyAsync(() -> {
+      JsonArray currencies = json.getAsJsonArray("custom-currencies");
+      currencies.remove(new Gson().toJsonTree(currency));
+      json.add("custom-currencies", currencies);
+      for (Map.Entry<String, JsonElement> entry : getEntrySet()) {
+        JsonObject accountJson = entry.getValue().getAsJsonObject();
+        accountJson.remove(currency);
+      }
+      save();
+      super.currencies.remove(currency);
+      return true;
+    });
   }
   
 }

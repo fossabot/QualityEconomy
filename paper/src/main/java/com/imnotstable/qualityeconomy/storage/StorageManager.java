@@ -192,10 +192,12 @@ public class StorageManager implements Listener {
       Logger.logError("Failed to create currency \"" + currency + "\"", "Currency already exists");
       return;
     }
-    if (getActiveStorageType().addCurrency(currency)) {
-      CommandManager.getCommand("custombalance").register();
-      CommandManager.getCommand("customeconomy").register();
-    }
+    getActiveStorageType().addCurrency(currency).thenAccept(success -> {
+      if (!success)
+        return;
+      CommandManager.registerCommand("custombalance");
+      CommandManager.registerCommand("customeconomy");
+    });
   }
   
   public static void removeCurrency(String currency) {
@@ -208,11 +210,12 @@ public class StorageManager implements Listener {
       Logger.logError("Failed to delete currency \"" + currency + "\"", "Currency doesn't exist");
       return;
     }
-    if (getActiveStorageType().removeCurrency(currency))
-      if (getActiveStorageType().getCurrencies().isEmpty()) {
-        CommandManager.getCommand("custombalance").unregister();
-        CommandManager.getCommand("customeconomy").unregister();
-      }
+    getActiveStorageType().removeCurrency(currency).thenAccept(success -> {
+      if (!success)
+        return;
+      CommandManager.unregisterCommand("custombalance");
+      CommandManager.unregisterCommand("customeconomy");
+    });
   }
   
   @EventHandler

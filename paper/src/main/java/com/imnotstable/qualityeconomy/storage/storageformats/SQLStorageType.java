@@ -186,43 +186,47 @@ public final class SQLStorageType extends EasySQL implements StorageType {
   }
   
   @Override
-  public boolean addCurrency(@NotNull String currency) {
-    try (Connection connection = getConnection()) {
-      try (PreparedStatement preparedStatement = connection.prepareStatement("INSERT INTO CURRENCIES(CURRENCY) VALUES(?)")) {
-        preparedStatement.setString(1, currency);
-        preparedStatement.executeUpdate();
-        addColumn(connection, currency, "FLOAT(53)", "0.0");
+  public CompletableFuture<Boolean> addCurrency(@NotNull String currency) {
+    return CompletableFuture.supplyAsync(() -> {
+      try (Connection connection = getConnection()) {
+        try (PreparedStatement preparedStatement = connection.prepareStatement("INSERT INTO CURRENCIES(CURRENCY) VALUES(?)")) {
+          preparedStatement.setString(1, currency);
+          preparedStatement.executeUpdate();
+          addColumn(connection, currency, "FLOAT(53)", "0.0");
+        } catch (SQLException exception) {
+          Logger.logError("Failed to add currency to database (" + currency + ")", exception);
+          connection.rollback();
+          return false;
+        }
       } catch (SQLException exception) {
-        Logger.logError("Failed to add currency to database (" + currency + ")", exception);
-        connection.rollback();
+        Logger.logError("Failed to retrieve connection to database or rollback", exception);
         return false;
       }
-    } catch (SQLException exception) {
-      Logger.logError("Failed to retrieve connection to database or rollback", exception);
-      return false;
-    }
-    super.currencies.add(currency);
-    return true;
+      super.currencies.add(currency);
+      return true;
+    });
   }
   
   @Override
-  public boolean removeCurrency(@NotNull String currency) {
-    try (Connection connection = getConnection()) {
-      try (PreparedStatement preparedStatement = connection.prepareStatement("DELETE FROM CURRENCIES WHERE CURRENCY = ?")) {
-        preparedStatement.setString(1, currency);
-        preparedStatement.executeUpdate();
-        dropColumn(connection, currency);
+  public CompletableFuture<Boolean> removeCurrency(@NotNull String currency) {
+    return CompletableFuture.supplyAsync(() -> {
+      try (Connection connection = getConnection()) {
+        try (PreparedStatement preparedStatement = connection.prepareStatement("DELETE FROM CURRENCIES WHERE CURRENCY = ?")) {
+          preparedStatement.setString(1, currency);
+          preparedStatement.executeUpdate();
+          dropColumn(connection, currency);
+        } catch (SQLException exception) {
+          Logger.logError("Failed to remove currency from database (" + currency + ")", exception);
+          connection.rollback();
+          return false;
+        }
       } catch (SQLException exception) {
-        Logger.logError("Failed to remove currency from database (" + currency + ")", exception);
-        connection.rollback();
+        Logger.logError("Failed to retrieve connection to database or rollback", exception);
         return false;
       }
-    } catch (SQLException exception) {
-      Logger.logError("Failed to retrieve connection to database or rollback", exception);
-      return false;
-    }
-    super.currencies.remove(currency);
-    return true;
+      super.currencies.remove(currency);
+      return true;
+    });
   }
   
 }

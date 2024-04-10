@@ -106,25 +106,29 @@ public final class YamlStorageType extends EasyYaml implements StorageType {
   }
   
   @Override
-  public boolean addCurrency(@NotNull String currency) {
-    List<String> currencies = yaml.getStringList("custom-currencies");
-    yaml.set("custom-currencies", currencies);
-    for (String uuid : getAllUniqueIds())
-      yaml.set(uuid + "." + currency, 0);
-    save();
-    super.currencies.add(currency);
-    return true;
+  public CompletableFuture<Boolean> addCurrency(@NotNull String currency) {
+    return CompletableFuture.supplyAsync(() -> {
+      List<String> currencies = yaml.getStringList("custom-currencies");
+      yaml.set("custom-currencies", currencies);
+      for (String uuid : getAllUniqueIds())
+        yaml.set(uuid + "." + currency, 0);
+      save();
+      super.currencies.add(currency);
+      return true;
+    });
   }
   
   @Override
-  public boolean removeCurrency(@NotNull String currency) {
-    List<String> currencies = yaml.getStringList("custom-currencies");
-    yaml.set("custom-currencies", currencies);
-    for (String uuid : getAllUniqueIds())
-      yaml.set(uuid + "." + currency, null);
-    save();
-    super.currencies.remove(currency);
-    return true;
+  public CompletableFuture<Boolean> removeCurrency(@NotNull String currency) {
+    return CompletableFuture.supplyAsync(() -> {
+      List<String> currencies = yaml.getStringList("custom-currencies");
+      yaml.set("custom-currencies", currencies);
+      for (String uuid : getAllUniqueIds())
+        yaml.set(uuid + "." + currency, null);
+      save();
+      super.currencies.remove(currency);
+      return true;
+    });
   }
   
 }

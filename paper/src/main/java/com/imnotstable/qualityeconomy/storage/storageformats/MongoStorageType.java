@@ -139,26 +139,30 @@ public final class MongoStorageType extends EasyMongo implements StorageType {
   }
   
   @Override
-  public boolean addCurrency(@NotNull String currency) {
-    if (currencyCollection == null) {
-      Logger.logError("currencies collection database not found.");
-      return false;
-    }
-    currencyCollection.insertOne(new Document("CURRENCY", currency));
-    super.currencies.add(currency);
-    return true;
+  public CompletableFuture<Boolean> addCurrency(@NotNull String currency) {
+    return CompletableFuture.supplyAsync(() -> {
+      if (currencyCollection == null) {
+        Logger.logError("currencies collection database not found.");
+        return false;
+      }
+      currencyCollection.insertOne(new Document("CURRENCY", currency));
+      super.currencies.add(currency);
+      return true;
+    });
   }
   
   @Override
-  public boolean removeCurrency(@NotNull String currency) {
-    if (currencyCollection == null) {
-      Logger.logError("currencies collection not found.");
-      return false;
-    }
-    wipeEntry(currency);
-    currencyCollection.findOneAndDelete(new Document("CURRENCY", currency));
-    super.currencies.remove(currency);
-    return true;
+  public CompletableFuture<Boolean> removeCurrency(@NotNull String currency) {
+    return CompletableFuture.supplyAsync(() -> {
+      if (currencyCollection == null) {
+        Logger.logError("currencies collection not found.");
+        return false;
+      }
+      wipeEntry(currency);
+      currencyCollection.findOneAndDelete(new Document("CURRENCY", currency));
+      super.currencies.remove(currency);
+      return true;
+    });
   }
   
   private void toggleCurrencyCollection() {

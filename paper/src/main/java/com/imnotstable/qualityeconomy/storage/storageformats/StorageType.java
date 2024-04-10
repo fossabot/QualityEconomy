@@ -29,8 +29,8 @@ public interface StorageType {
   @NotNull
   Set<String> getCurrencies();
   
-  boolean addCurrency(@NotNull String currency);
+  CompletableFuture<Boolean> addCurrency(@NotNull String currency);
   
-  boolean removeCurrency(@NotNull String currency);
+  CompletableFuture<Boolean> removeCurrency(@NotNull String currency);
   
 }
